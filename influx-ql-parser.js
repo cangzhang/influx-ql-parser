@@ -1,5 +1,6 @@
 const QUTOE_MARK = '"'
 const COMMA_MARK = ','
+const PERIOD_MARK = '.'
 const L_BRACKET = '('
 const R_BRACKET = ')'
 
@@ -48,11 +49,22 @@ const getFieldFromAggregateFuncStr = function (_str) {
   return field
 }
 
+const validateGb = function (str) {
+  return /time\(\d+[w|d|h|m|s]\)$/.test(str)
+}
+
+const extractGb = function (str) {
+  return str.match(/\d+[w|d|h|m|s]/g)[0]
+}
+
+
+
+
 let sample = `
-  SELECT last("usage_idle") AS "    last_usage_idle",
-    mean(usage_user) AS user,
-    usage_system
-  FROM "telegraf"."autogen"."cpu" 
+  SELECT last("usage_idle") AS "    last_usage,idle",
+    mean("usage_user") AS "USER",
+    ((usage_system)) as system
+  FROM "telegraf".autogen."cpu" 
   WHERE usage_idle >    100 
       AND time > now() - 1h 
   GROUP BY time(10s)
@@ -63,6 +75,8 @@ let raw = removeSpacesWithQuotes(_raw)
 
 let srcArr = raw.split(' ')
 let qArr = raw.toLowerCase().split(' ')
+
+let query = {}
 
 let start = qArr.indexOf('select')
 
@@ -75,12 +89,12 @@ let fromIdx = qArr.indexOf('from')
 let selects = qArr.slice(1, fromIdx)
 let origSelects = srcArr.slice(1, fromIdx)
 
-if (!selects.length) {
-  throw new Error(`No field(s) selected.`)
-}
-if (selects.length % 3 > 1) {
-  throw new Error(`Wrong fields input.`)
-}
+// if (!selects.length) {
+//   throw new Error(`No field(s) selected.`)
+// }
+// if (selects.length % 3 > 1) {
+//   throw new Error(`Wrong fields input.`)
+// }
 
 let fieldArr = []
 for (let idx = 0; idx < selects.length;) {
@@ -120,5 +134,34 @@ fieldArr.map(function (fArr) {
   return null
 })
 
-// console.log(fieldSet)
+query.fieldSet = fieldSet
 
+let fromStr = srcArr[fromIdx + 1]
+let fromArr = fromStr.split('.')
+
+if (fromArr.length !== 3) {
+  throw new Error('Wrong from format.')
+}
+
+query.db = query.database = extractStrWithinQuotes(fromArr[0])
+query.retentionPolicy = extractStrWithinQuotes(fromArr[1])
+query.from = extractStrWithinQuotes(fromArr[2])
+
+
+let groupBy = ''
+let gbIdx = qArr.indexOf('group')
+let gBStr = qArr[gbIdx + 2]
+let isValidGb = validateGb(gBStr)
+
+if (isValidGb) {
+  groupBy = extractGb(gBStr)
+}
+
+groupBy && (query.groupBy = groupBy)
+
+
+console.log(query)
+
+let whereIdx = qArr.indexOf('where')
+let obIdx = qArr.indexOf('order')
+let limitIdx = qArr.indexOf('limit')
