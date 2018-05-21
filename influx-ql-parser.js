@@ -3,6 +3,9 @@ const COMMA_MARK = ','
 const PERIOD_MARK = '.'
 const L_BRACKET = '('
 const R_BRACKET = ')'
+const CONDITION_AND = 'and'
+const CONDITION_OR = 'or'
+const KW_TIME = 'time'
 
 const getStrBeforeComma = function (str) {
   const endsWithComma = /"([^"]+)",?$/.test(str)
@@ -57,7 +60,23 @@ const extractGb = function (str) {
   return str.match(/\d+[w|d|h|m|s]/g)[0]
 }
 
+const includesKey = function (arr = [], key) {
+  return [',', ...arr]
+    .join(' ,')
+    .toLowerCase()
+    .indexOf(`,${key} ,`) >= 0
+}
 
+const isField = function (_field, fieldArr = []) {
+  let field = extractStrWithinQuotes(_field)
+  let result = fieldArr.filter(el => el[0].indexOf(field) >= 0)
+  return result.length > 0
+}
+
+const getCondStr = function (str) {
+  let f = extractStrWithinQuotes(str)
+  return f.replace(/(')/g, '')
+}
 
 
 let sample = `
@@ -65,9 +84,13 @@ let sample = `
     mean("usage_user") AS "USER",
     ((usage_system)) as system
   FROM "telegraf".autogen."cpu" 
-  WHERE usage_idle >    100 
+  WHERE "usage_idle" >    50 
       AND time > now() - 1h 
+      AND "cpu"='cpu-total'
+      OR 'host' = 124535
   GROUP BY time(10s)
+  limit 30
+  order by time desc
 `
 
 let _raw = sample.trim().replace(/\s+/g, ' ')
@@ -76,7 +99,16 @@ let raw = removeSpacesWithQuotes(_raw)
 let srcArr = raw.split(' ')
 let qArr = raw.toLowerCase().split(' ')
 
-let query = {}
+let query = {
+  db: '',
+  database: '',
+  from: '',
+  whereObj: {
+    AND: [],
+    OR: [],
+    TAG: [],
+  }
+}
 
 let start = qArr.indexOf('select')
 
@@ -147,7 +179,6 @@ query.db = query.database = extractStrWithinQuotes(fromArr[0])
 query.retentionPolicy = extractStrWithinQuotes(fromArr[1])
 query.from = extractStrWithinQuotes(fromArr[2])
 
-
 let groupBy = ''
 let gbIdx = qArr.indexOf('group')
 let gBStr = qArr[gbIdx + 2]
@@ -159,9 +190,100 @@ if (isValidGb) {
 
 groupBy && (query.groupBy = groupBy)
 
+const simpleSelect = function (idx, gap, arr) {
+  return idx >= 0 ? arr[idx + gap] : null
+}
+
+let sOfwhere = qArr.indexOf('where')
+let limitIdx = qArr.indexOf('limit')
+let slimitIdx = qArr.indexOf('slimit')
+let offsetIdx = qArr.indexOf('offset')
+let soffsetIdx = qArr.indexOf('soffset')
+let orderIdx = qArr.indexOf('order')
+
+query.limit = simpleSelect(limitIdx, 1, qArr)
+query.slimit = simpleSelect(slimitIdx, 1, qArr)
+query.offset = simpleSelect(offsetIdx, 1, qArr)
+query.soffset = simpleSelect(soffsetIdx, 1, qArr)
+query.orderBy = simpleSelect(orderIdx, 3, qArr)
+
+let eOfWhere = [
+  limitIdx,
+  slimitIdx,
+  offsetIdx,
+  soffsetIdx,
+  orderIdx,
+  gbIdx,
+]
+  .filter(e => e > 0)
+  .sort()[0]
+
+let srcWhereArr = srcArr.slice(sOfwhere + 1, eOfWhere)
+let whereArr = qArr.slice(sOfwhere + 1, eOfWhere)
+
+let andArr = [],
+  orArr = []
+
+let breaks = whereArr
+  .map(function (e, i) {
+    if (e === CONDITION_AND || e === CONDITION_OR) {
+      return i
+    }
+    return -1
+  })
+  .filter(e => e > 0)
+
+
+andArr.push(srcWhereArr.slice(0, breaks[0]))
+
+for (let i = 0; i < breaks.length; i++) {
+  let lIdx = breaks[i]
+  let rIdx = breaks[i + 1]
+  let cond = whereArr[lIdx]
+  let next = srcWhereArr.slice(lIdx + 1, rIdx)
+  if (cond === CONDITION_AND) {
+    andArr.push(next)
+  } else {
+    orArr.push(next)
+  }
+}
+
+// ignore keyword *time*
+let ands = andArr.filter(e =>
+  !includesKey(e, KW_TIME) && e.length === 3)
+let ors = orArr.filter(e =>
+  !includesKey(e, KW_TIME) && e.length === 3)
+
+ands.map(arr => {
+  const isNotTag = isField(arr[0], fieldArr)
+  let param1 = getCondStr(arr[0])
+  let param2 = getCondStr(arr[2])
+
+  if (isNotTag) {
+    query.whereObj.AND.push({
+      param1,
+      param2,
+      operator: arr[1],
+    })
+  } else {
+    query.whereObj.TAG.push({
+      tagKey: param1,
+      tagValue: param2,
+      operator: arr[1],
+    })
+  }
+  return null
+})
+
+query.whereObj.OR = ors.map(arr => {
+  let param1 = getCondStr(arr[0])
+  let param2 = getCondStr(arr[2])
+
+  return {
+    operator: arr[1],
+    param1,
+    param2,
+  }
+})
 
 console.log(query)
-
-let whereIdx = qArr.indexOf('where')
-let obIdx = qArr.indexOf('order')
-let limitIdx = qArr.indexOf('limit')
