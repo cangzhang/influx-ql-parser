@@ -78,9 +78,26 @@ const getCondStr = function (str) {
   return f.replace(/(')/g, '')
 }
 
+const extractCond = function (arr) {
+  if (arr.length === 3) {
+    let isTag = !isField(arr[0], fieldArr)
+    let param1 = getCondStr(arr[0])
+    let operator = arr[1]
+    let param2 = getCondStr(arr[2])
+    return [param1, operator, param2, isTag]
+  }
+
+  let str = arr.join('')
+  let operator = str.match(/[!|>!<|=]+/g)[0]
+  let [_param1, _param2] = str.split(operator)
+  let param1 = _param1.replace(/('|")/g, '')
+  let param2 = _param2.replace(/('|")/g, '')
+  let isTag = !isField(param1, fieldArr)
+  return [param1, operator, param2, isTag]
+}
 
 let sample = `
-  SELECT last("usage_idle") AS "    last_usage,idle",
+  SELECT last("usage_idle") AS _idle,
     mean("usage_user") AS "USER",
     ((usage_system)) as system
   FROM "telegraf".autogen."cpu" 
@@ -120,13 +137,6 @@ let fromIdx = qArr.indexOf('from')
 
 let selects = qArr.slice(1, fromIdx)
 let origSelects = srcArr.slice(1, fromIdx)
-
-// if (!selects.length) {
-//   throw new Error(`No field(s) selected.`)
-// }
-// if (selects.length % 3 > 1) {
-//   throw new Error(`Wrong fields input.`)
-// }
 
 let fieldArr = []
 for (let idx = 0; idx < selects.length;) {
@@ -249,41 +259,47 @@ for (let i = 0; i < breaks.length; i++) {
 }
 
 // ignore keyword *time*
-let ands = andArr.filter(e =>
-  !includesKey(e, KW_TIME) && e.length === 3)
-let ors = orArr.filter(e =>
-  !includesKey(e, KW_TIME) && e.length === 3)
+let ands = andArr.filter(e => !includesKey(e, KW_TIME))
+let ors = orArr.filter(e => !includesKey(e, KW_TIME))
 
 ands.map(arr => {
-  const isNotTag = isField(arr[0], fieldArr)
-  let param1 = getCondStr(arr[0])
-  let param2 = getCondStr(arr[2])
+  let [param1, operator, param2, isTag] = extractCond(arr)
 
-  if (isNotTag) {
+  if (!isTag) {
     query.whereObj.AND.push({
       param1,
       param2,
-      operator: arr[1],
+      operator,
     })
   } else {
     query.whereObj.TAG.push({
       tagKey: param1,
       tagValue: param2,
-      operator: arr[1],
+      operator,
     })
   }
+
   return null
 })
 
-query.whereObj.OR = ors.map(arr => {
-  let param1 = getCondStr(arr[0])
-  let param2 = getCondStr(arr[2])
+ors.map(arr => {
+  let [param1, operator, param2, isTag] = extractCond(arr)
 
-  return {
-    operator: arr[1],
-    param1,
-    param2,
+  if (!isTag) {
+    query.whereObj.OR.push({
+      param1,
+      param2,
+      operator,
+    })
+  } else {
+    query.whereObj.TAG.push({
+      tagKey: param1,
+      tagValue: param2,
+      operator,
+    })
   }
+
+  return null
 })
 
 console.log(query)
