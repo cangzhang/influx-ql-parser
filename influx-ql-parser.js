@@ -116,7 +116,43 @@ const extractCond = function (arr, fieldArr) {
   return [param1, operator, param2, isTag]
 }
 
-const getFieldSet = function (selects, origSelects) {
+// deal with queries like 'select idle as "id,le",system as "sys"'
+const rearrangeSelects = function (_selects = [], _origSelects = []) {
+  let selects = _selects.slice(),
+    origSelects = _origSelects.slice()
+
+  for (let idx = 0; idx < selects.length;) {
+    let el = selects[idx]
+    if (el.indexOf(COMMA_MARK) < 0) {
+      idx++
+    } else {
+      let tmpArr = el.split(COMMA_MARK),
+      arr = origSelects[idx].split(COMMA_MARK)
+
+      let toInsert = tmpArr.pop(),
+      _new = arr.pop()
+
+      selects = [
+        ...selects.slice(0, idx),
+        tmpArr.join(''),
+        toInsert,
+        ...selects.slice(idx + 1)
+      ]
+      origSelects = [
+        ...origSelects.slice(0, idx),
+        arr.join(''),
+        _new,
+        ...origSelects.slice(idx + 1)
+      ]
+
+      idx += 2
+    }
+  }
+  return [selects, origSelects]
+}
+
+const getFieldSet = function (_selects, _origSelects) {
+  let [selects, origSelects] = rearrangeSelects(_selects, _origSelects)
   let fieldArr = []
   for (let idx = 0; idx < selects.length;) {
     if (selects[idx + 1] === 'as') {
@@ -317,14 +353,11 @@ const parser = function (rawStr) {
 
 export default parser
 
-
 // let sample = `
-//     SELECT last("usage_idle") AS _idle,
-//     mean("usage_user") AS "USER",
-//       ((usage_system)) as system
+//     SELECT last("usage_idle") AS "_id,le",mean("usage_user") AS USER,((usage_system)) as system
 //     FROM "telegraf".autogen."cpu" 
 //     WHERE "usage_idle" >    50 
-//         AND time > now() - 1h 
+//         AND time > now()-1h 
 //         AND "cpu"='cpu-total'
 //         OR 'host' = 124535
 //     GROUP BY time(10s)
@@ -332,7 +365,8 @@ export default parser
 //     order by time desc
 //   `
 
+// console.time('parse')
 // let query = parser(sample)
-
-// console.log(query)
+// console.timeEnd('parse')
+// console.log('done')
 
