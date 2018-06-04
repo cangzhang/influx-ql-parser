@@ -1,7 +1,5 @@
-// const PERIOD_MARK = '.'
-// const R_BRACKET = ')'
-
-const QUTOE_MARK = '"'
+const WHITE_SPACE = ' '
+const QUOTE_MARK = '"'
 const COMMA_MARK = ','
 const L_BRACKET = '('
 const CONDITION_AND = 'and'
@@ -45,7 +43,7 @@ const removeSpacesWithQuotes = function (str) {
 
 const getField = function (str) {
   let field = ''
-  if (str.indexOf(QUTOE_MARK) >= 0) {
+  if (str.indexOf(QUOTE_MARK) >= 0) {
     field = getStrBeforeComma(str)
     return field
   }
@@ -55,7 +53,11 @@ const getField = function (str) {
 }
 
 const getFunc = function (str) {
-  let func = str.split(L_BRACKET)[0].toUpperCase()
+  let func = ''
+  if (str.indexOf(L_BRACKET) >= 0) {
+    func = str.split(L_BRACKET)[0].toUpperCase()
+  }
+
   return func || ''
 }
 
@@ -127,22 +129,22 @@ const rearrangeSelects = function (_selects = [], _origSelects = []) {
       idx++
     } else {
       let tmpArr = el.split(COMMA_MARK),
-      arr = origSelects[idx].split(COMMA_MARK)
+        arr = origSelects[idx].split(COMMA_MARK)
 
       let toInsert = tmpArr.pop(),
-      _new = arr.pop()
+        _new = arr.pop()
 
       selects = [
         ...selects.slice(0, idx),
         tmpArr.join(''),
         toInsert,
-        ...selects.slice(idx + 1)
+        ...selects.slice(idx + 1),
       ]
       origSelects = [
         ...origSelects.slice(0, idx),
         arr.join(''),
         _new,
-        ...origSelects.slice(idx + 1)
+        ...origSelects.slice(idx + 1),
       ]
 
       idx += 2
@@ -294,12 +296,11 @@ const getAndnOR = function (whereArr, srcWhereArr) {
 const parser = function (rawStr) {
   let query = { ...EMPTY_QUERY }
 
-  let _raw = rawStr.trim().replace(/\s+/g, ' ')
+  let _raw = rawStr.trim().replace(/\s+/g, WHITE_SPACE)
   let raw = removeSpacesWithQuotes(_raw)
 
-  let srcArr = raw.split(' ')
-  0
-  let qArr = raw.toLowerCase().split(' ')
+  let srcArr = raw.split(WHITE_SPACE)
+  let qArr = raw.toLowerCase().split(WHITE_SPACE)
 
   let fromIdx = qArr.indexOf('from')
 
@@ -311,13 +312,13 @@ const parser = function (rawStr) {
 
   let fromStr = srcArr[fromIdx + 1]
   let [db, retentionPolicy, from] = getFrom(fromStr)
-  query.db = db
+  query.db = query.database = db
   query.retentionPolicy = retentionPolicy
   query.from = from
 
   query.groupBy = getGroupBy(qArr)
 
-  let sOfwhere = qArr.indexOf('where')
+  let sOfWhere = qArr.indexOf('where')
   let limitIdx = qArr.indexOf('limit')
   let slimitIdx = qArr.indexOf('slimit')
   let offsetIdx = qArr.indexOf('offset')
@@ -342,27 +343,24 @@ const parser = function (rawStr) {
     .filter(e => e > 0)
     .sort()[0]
 
-  let whereArr = qArr.slice(sOfwhere + 1, eOfWhere)
-  let srcWhereArr = srcArr.slice(sOfwhere + 1, eOfWhere)
+  if (sOfWhere >= 0) {
+    let whereArr = qArr.slice(sOfWhere + 1, eOfWhere)
+    let srcWhereArr = srcArr.slice(sOfWhere + 1, eOfWhere)
 
-  let arrs = getAndnOR(whereArr, srcWhereArr)
-  query.whereObj = makeWhereArr(...arrs, fieldArr)
+    let arrs = getAndnOR(whereArr, srcWhereArr)
+    query.whereObj = makeWhereArr(...arrs, fieldArr)
+  }
 
   return query
 }
 
 export default parser
 
+
+// export default parser
+
 // let sample = `
-//     SELECT last("usage_idle") AS "_id,le",mean("usage_user") AS USER,((usage_system)) as system
-//     FROM "telegraf".autogen."cpu" 
-//     WHERE "usage_idle" >    50 
-//         AND time > now()-1h 
-//         AND "cpu"='cpu-total'
-//         OR 'host' = 124535
-//     GROUP BY time(10s)
-//     limit 30
-//     order by time desc
+//     SELECT "Disk_Read_Bytes_persec" as "Disk_Read_Bytes_persec" FROM "telegraf".""."win_diskio"
 //   `
 
 // console.time('parse')
