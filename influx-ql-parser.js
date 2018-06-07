@@ -36,7 +36,7 @@ const extractStrBetweenQuotes = function (str) {
 }
 
 const removeSpacesWithQuotes = function (str) {
-  return str.replace(/"([^"]+)"|'([^']+)'/g, function (m) {
+  return str.replace(/"(?:"[^"]*"|^[^"]*$)'/g, function (m) {
     return m.replace(/\s/g, '')
   })
 }
