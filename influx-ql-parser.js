@@ -197,8 +197,7 @@ const getFieldSet = function (_selects, _origSelects) {
 
     if (len === 1) {
       let fStr = fArr[0]
-      field = getField(fStr)
-      as = field
+      _as = field = getField(fStr)
     } else if (len === 3) {
       func = getFunc(fArr[0])
       field = getFieldFromAggregateFuncStr(fArr[0])
