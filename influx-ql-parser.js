@@ -5,6 +5,7 @@ const L_BRACKET = '('
 const CONDITION_AND = 'and'
 const CONDITION_OR = 'or'
 const KW_TIME = 'time'
+const KW_AS = 'as'
 
 const EMPTY_QUERY = {
   db: '',
@@ -129,6 +130,10 @@ const matchCommaOutOfQuotes = function (str) {
   return str.match(/\(?"(.*?)"\)?/g)
 }
 
+const extractStrBetweenBrackets = function (str) {
+  return str.match(/\((.*?)\)/)[1]
+}
+
 // deal with queries like 'select idle as "id,le",system as "sys"'
 const rearrangeSelects = function (_selects = [], _origSelects = []) {
   let selects = _selects.slice(),
@@ -165,7 +170,7 @@ const rearrangeSelects = function (_selects = [], _origSelects = []) {
 
       gaps.push(idx + 1)
 
-      idx += 2
+      idx++
     }
   }
   return [selects, origSelects, gaps]
@@ -175,7 +180,7 @@ const getFieldSet = function (_selects, _origSelects) {
   let [selects, origSelects, gaps] = rearrangeSelects(_selects, _origSelects)
   let fieldArr = [...gaps, -1].map((el, idx) => {
     let prior = gaps[idx - 1]
-    if (idx >= 0) {
+    if (el >= 0) {
       prior = idx === 0 ? 0 : prior
       return selects.slice(prior, el)
     }
@@ -193,10 +198,15 @@ const getFieldSet = function (_selects, _origSelects) {
     if (len === 1) {
       let fStr = fArr[0]
       field = getField(fStr)
+      as = field
     } else if (len === 3) {
       func = getFunc(fArr[0])
       field = getFieldFromAggregateFuncStr(fArr[0])
       _as = getField(fArr[2])
+    } else if (len > 3) {
+      let asIdx = fArr.indexOf(KW_AS)
+      let rawF = fArr.slice(0, asIdx).join('')
+      field = _as = extractStrBetweenBrackets(rawF)
     }
 
     field && fieldSet.push({
