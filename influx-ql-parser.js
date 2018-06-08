@@ -118,55 +118,70 @@ const extractCond = function (arr, fieldArr) {
   return [param1, operator, param2, isTag]
 }
 
+const hasOneComma = function (str) {
+  let first = str.indexOf(COMMA_MARK)
+  let last = str.lastIndexOf(COMMA_MARK)
+
+  return first === last
+}
+
+const matchCommaOutOfQuotes = function (str) {
+  return str.match(/\(?"(.*?)"\)?/g)
+}
+
 // deal with queries like 'select idle as "id,le",system as "sys"'
 const rearrangeSelects = function (_selects = [], _origSelects = []) {
   let selects = _selects.slice(),
     origSelects = _origSelects.slice()
+  let gaps = []
 
   for (let idx = 0; idx < selects.length;) {
-    let el = selects[idx]
+    let el = selects[idx], origEl = origSelects[idx]
+
     if (el.indexOf(COMMA_MARK) < 0) {
       idx++
     } else {
-      let tmpArr = el.split(COMMA_MARK),
-        arr = origSelects[idx].split(COMMA_MARK)
+      let _insert = [], insert = []
+      const onlyOneComma = hasOneComma(el)
 
-      let toInsert = tmpArr.pop(),
-        _new = arr.pop()
+      if (onlyOneComma) {
+        _insert = el.split(COMMA_MARK).filter(e => e)
+        insert = origEl.split(COMMA_MARK).filter(e => e)
+      } else {
+        _insert = matchCommaOutOfQuotes(el)
+        insert = matchCommaOutOfQuotes(origEl)
+      }
 
       selects = [
         ...selects.slice(0, idx),
-        tmpArr.join(''),
-        toInsert,
+        ..._insert,
         ...selects.slice(idx + 1),
       ]
       origSelects = [
         ...origSelects.slice(0, idx),
-        arr.join(''),
-        _new,
+        ...insert,
         ...origSelects.slice(idx + 1),
       ]
+
+      gaps.push(idx + 1)
 
       idx += 2
     }
   }
-  return [selects, origSelects]
+  return [selects, origSelects, gaps]
 }
 
 const getFieldSet = function (_selects, _origSelects) {
-  let [selects, origSelects] = rearrangeSelects(_selects, _origSelects)
-  let fieldArr = []
-  for (let idx = 0; idx < selects.length;) {
-    if (selects[idx + 1] === 'as') {
-      let field = origSelects.slice(idx, idx + 3)
-      fieldArr.push(field)
-      idx += 3
-    } else {
-      let field = origSelects[idx]
-      field.length && fieldArr.push([field])
-      idx++
+  let [selects, origSelects, gaps] = rearrangeSelects(_selects, _origSelects)
+  let fieldArr = [...gaps, -1].map((el, idx) => {
+    let prior = gaps[idx - 1]
+    if (idx >= 0) {
+      prior = idx === 0 ? 0 : prior
+      return selects.slice(prior, el)
     }
-  }
+
+    return selects.slice(prior)
+  })
 
   let fieldSet = []
   fieldArr.map(function (fArr) {
@@ -354,17 +369,15 @@ const parser = function (rawStr) {
   return query
 }
 
-export default parser
-
-
 // export default parser
 
-// let sample = `
-//     SELECT "Disk_Read_Bytes_persec" as "Disk_Read_Bytes_persec" FROM "telegraf".""."win_diskio"
-//   `
+let sample = `
+    SELECT free as "f,ree",("used_percent" + "free_percent") as total, p, b as b 
+    FROM "telegraf"."autogen"."disk"
+  `
 
-// console.time('parse')
-// let query = parser(sample)
-// console.timeEnd('parse')
-// console.log('done')
+console.time('parse')
+let query = parser(sample)
+console.timeEnd('parse')
+console.log('done')
 
