@@ -168,7 +168,7 @@ const rearrangeSelects = function (_selects = [], _origSelects = []) {
 
       gaps.push(idx + 1)
     }
-    
+
     idx++
   }
   return [selects, origSelects, gaps]
@@ -319,6 +319,9 @@ const parser = function (rawStr) {
   let query = { ...EMPTY_QUERY }
 
   let _raw = rawStr.trim().replace(/\s+/g, WHITE_SPACE)
+
+  query.result = _raw
+
   let raw = removeSpacesWithQuotes(_raw)
 
   let srcArr = raw.split(WHITE_SPACE)
@@ -326,18 +329,26 @@ const parser = function (rawStr) {
 
   let fromIdx = qArr.indexOf('from')
 
-  let selects = qArr.slice(1, fromIdx)
-  let origSelects = srcArr.slice(1, fromIdx)
-
-  let [fieldArr, fieldSet] = getFieldSet(selects, origSelects)
-  query.fieldSet = fieldSet
-
   let fromStr = srcArr[fromIdx + 1]
   let [db, retentionPolicy, from] = getFrom(fromStr)
+
   query.db = query.database = db
   query.retentionPolicy = retentionPolicy
   query.from = from
 
+  let selects = qArr.slice(1, fromIdx)
+  let origSelects = srcArr.slice(1, fromIdx)
+
+  let [fieldArr, fieldSet] = getFieldSet(selects, origSelects)
+
+  if (!db || !from || !fieldSet.length) {
+    return {
+      ...EMPTY_QUERY,
+      result: _raw,
+    }
+  }
+
+  query.fieldSet = fieldSet
   query.groupBy = getGroupBy(qArr)
 
   let sOfWhere = qArr.indexOf('where')
