@@ -387,15 +387,15 @@ const parser = function (rawStr) {
   return query
 }
 
-// export default parser
+export default parser
 
-let sample = `
-    SELECT free as "f,ree",("used_percent" + "free_percent") as total, p, b as b 
-    FROM "telegraf"."autogen"."disk"
-  `
+// let sample = `
+//     SELECT free as "f,ree",("used_percent" + "free_percent") as total, p, b as b 
+//     FROM "telegraf"."autogen"."disk"
+//   `
 
-console.time('parse')
-let query = parser(sample)
-console.timeEnd('parse')
-console.log(query)
+// console.time('parse')
+// let query = parser(sample)
+// console.timeEnd('parse')
+// console.log(query)
 
