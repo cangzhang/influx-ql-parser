@@ -143,9 +143,7 @@ const rearrangeSelects = function (_selects = [], _origSelects = []) {
   for (let idx = 0; idx < selects.length;) {
     let el = selects[idx], origEl = origSelects[idx]
 
-    if (el.indexOf(COMMA_MARK) < 0) {
-      idx++
-    } else {
+    if (el.indexOf(COMMA_MARK) >= 0) {
       let _insert = [], insert = []
       const onlyOneComma = hasOneComma(el)
 
@@ -169,9 +167,9 @@ const rearrangeSelects = function (_selects = [], _origSelects = []) {
       ]
 
       gaps.push(idx + 1)
-
-      idx++
     }
+    
+    idx++
   }
   return [selects, origSelects, gaps]
 }
@@ -378,15 +376,15 @@ const parser = function (rawStr) {
   return query
 }
 
-export default parser
+// export default parser
 
-// let sample = `
-//     SELECT free as "f,ree",("used_percent" + "free_percent") as total, p, b as b 
-//     FROM "telegraf"."autogen"."disk"
-//   `
+let sample = `
+    SELECT free as "f,ree",("used_percent" + "free_percent") as total, p, b as b 
+    FROM "telegraf"."autogen"."disk"
+  `
 
-// console.time('parse')
-// let query = parser(sample)
-// console.timeEnd('parse')
-// console.log('done')
+console.time('parse')
+let query = parser(sample)
+console.timeEnd('parse')
+console.log(query)
 
