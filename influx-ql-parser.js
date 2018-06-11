@@ -136,7 +136,8 @@ const matchCommaOutOfQuotes = function (str) {
 }
 
 const extractStrBetweenBrackets = function (str) {
-  return str.match(/\((.*?)\)/)[1]
+  let res = str.match(/\((.*?)\)/)
+  return res ? res[1] : str
 }
 
 // deal with queries like 'select idle as "id,le",system as "sys"'
@@ -202,13 +203,21 @@ const getFieldSet = function (_selects, _origSelects) {
       let fStr = fArr[0]
       _as = field = getField(fStr)
     } else if (len === 3) {
-      func = getFunc(fArr[0])
-      field = getFieldFromAggregateFuncStr(fArr[0])
-      _as = getField(fArr[2])
+      let asIdx = fArr.indexOf(KW_AS)
+      if (asIdx >= 0) {
+        func = getFunc(fArr[0])
+        field = getFieldFromAggregateFuncStr(fArr[0])
+        _as = getField(fArr[2])
+      } else {
+        let rawF = fArr.join('')
+        field = extractStrBetweenBrackets(rawF)
+        _as = field
+      }
     } else if (len > 3) {
       let asIdx = fArr.indexOf(KW_AS)
       let rawF = fArr.slice(0, asIdx).join('')
       field = extractStrBetweenBrackets(rawF)
+
       _as = fArr.length > asIdx
         ? extractStrBetweenQuotes(fArr[asIdx + 1])
         : field
@@ -225,6 +234,7 @@ const getFieldSet = function (_selects, _origSelects) {
 
   return [fieldArr, fieldSet]
 }
+
 
 const getFrom = function (fromStr) {
   let fromArr = fromStr.split('.')
