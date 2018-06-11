@@ -10,12 +10,17 @@ const KW_AS = 'as'
 const EMPTY_QUERY = {
   db: '',
   database: '',
+  retentionPolicy: '',
   from: '',
   whereObj: {
     AND: [],
     OR: [],
     TAG: [],
   },
+  limit: null,
+  slimit: null,
+  offset: null,
+  soffset: null
 }
 
 const simpleSelect = function (idx, gap, arr) {
