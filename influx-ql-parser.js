@@ -208,7 +208,10 @@ const getFieldSet = function (_selects, _origSelects) {
     } else if (len > 3) {
       let asIdx = fArr.indexOf(KW_AS)
       let rawF = fArr.slice(0, asIdx).join('')
-      field = _as = extractStrBetweenBrackets(rawF)
+      field = extractStrBetweenBrackets(rawF)
+      _as = fArr.length > asIdx
+        ? extractStrBetweenQuotes(fArr[asIdx + 1])
+        : field
     }
 
     field && fieldSet.push({
@@ -395,8 +398,11 @@ const parser = function (rawStr) {
 export default parser
 
 // let sample = `
-//     SELECT free as "f,ree",("used_percent" + "free_percent") as total, p, b as b 
-//     FROM "telegraf"."autogen"."disk"
+//     SELECT ("usage_system" + "usage_idle" ) as "_all", 
+//       MEAN("usage_user") as "user" 
+//     FROM "telegraf".""."cpu" 
+//     WHERE "cpu" = 'cpu-total' 
+//       and usage_system > 3.0
 //   `
 
 // console.time('parse')
