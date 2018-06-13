@@ -115,7 +115,7 @@ const extractCond = function (arr, fieldArr) {
     return [param1, operator, param2, isTag]
   }
 
-  let str = arr.join('')
+  let str = arr.join()
   let operator = str.match(/[!|>!<|=]+/g)[0]
   let [_param1, _param2] = str.split(operator)
   let param1 = replaceQuotes(_param1)
@@ -140,6 +140,30 @@ const extractStrBetweenBrackets = function (str) {
   return res ? res[1] : str
 }
 
+const funcRegExp = /(.*)\(/
+
+const fieldHasOperator = function (str) {
+  return /[+-/*%^&|]/.test(str)
+}
+
+const getFuncNField = function (str) {
+  let matchRes = str.match(funcRegExp) || []
+  let func = matchRes[1] || ''
+  let field = ''
+  const hasBracket = funcRegExp.test(str)
+  if (!hasBracket) {
+    field = extractStrBetweenQuotes(str)
+    return [func, field]
+  }
+
+  let rawField = extractStrBetweenBrackets(str)
+  const hasOperator = fieldHasOperator(rawField)
+  field = hasOperator ? rawField : extractStrBetweenQuotes(rawField)
+
+  return [func, field]
+}
+
+// deal with queries like 'select idle as "id,le",system as "sys"'
 // deal with queries like 'select idle as "id,le",system as "sys"'
 const rearrangeSelects = function (_selects = [], _origSelects = []) {
   let selects = _selects.slice(),
@@ -177,11 +201,11 @@ const rearrangeSelects = function (_selects = [], _origSelects = []) {
 
     idx++
   }
-  return [selects, origSelects, gaps]
+  return [selects, gaps, origSelects]
 }
 
 const getFieldSet = function (_selects, _origSelects) {
-  let [selects, origSelects, gaps] = rearrangeSelects(_selects, _origSelects)
+  let [selects, gaps] = rearrangeSelects(_selects, _origSelects)
   let fieldArr = [...gaps, -1].map((el, idx) => {
     let prior = gaps[idx - 1]
     if (el >= 0) {
@@ -200,22 +224,21 @@ const getFieldSet = function (_selects, _origSelects) {
       func = ''
 
     if (len === 1) {
-      let fStr = fArr[0]
-      _as = field = getField(fStr)
+      [func, field] = getFuncNField(fArr[0])
+      _as = field
     } else if (len === 3) {
       let asIdx = fArr.indexOf(KW_AS)
       if (asIdx >= 0) {
-        func = getFunc(fArr[0])
-        field = getFieldFromAggregateFuncStr(fArr[0])
+        [func, field] = getFuncNField(fArr[0])
         _as = getField(fArr[2])
       } else {
-        let rawF = fArr.join('')
+        let rawF = fArr.join()
         field = extractStrBetweenBrackets(rawF)
         _as = field
       }
     } else if (len > 3) {
       let asIdx = fArr.indexOf(KW_AS)
-      let rawF = fArr.slice(0, asIdx).join('')
+      let rawF = fArr.slice(0, asIdx).join()
       field = extractStrBetweenBrackets(rawF)
 
       _as = fArr.length > asIdx
@@ -232,7 +255,7 @@ const getFieldSet = function (_selects, _origSelects) {
     return null
   })
 
-  return [fieldArr, fieldSet]
+  return [fieldSet, fieldArr]
 }
 
 
@@ -357,7 +380,7 @@ const parser = function (rawStr) {
   let selects = qArr.slice(1, fromIdx)
   let origSelects = srcArr.slice(1, fromIdx)
 
-  let [fieldArr, fieldSet] = getFieldSet(selects, origSelects)
+  let [fieldSet, fieldArr] = getFieldSet(selects, origSelects)
 
   if (!db || !from || !fieldSet.length) {
     return {
@@ -408,7 +431,7 @@ const parser = function (rawStr) {
 export default parser
 
 // let sample = `
-//     SELECT ("usage_system" + "usage_idle" ) as "_all", 
+//     SELECT ("usage_system" + "usage_idle" ) as "_all,", 
 //       MEAN("usage_user") as "user" 
 //     FROM "telegraf".""."cpu" 
 //     WHERE "cpu" = 'cpu-total' 
@@ -419,4 +442,3 @@ export default parser
 // let query = parser(sample)
 // console.timeEnd('parse')
 // console.log(query)
-
