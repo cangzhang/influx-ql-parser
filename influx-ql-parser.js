@@ -106,6 +106,11 @@ const replaceQuotes = function (str) {
   return str.replace(/('|")/g, '')
 }
 
+const getOperator = function (str) {
+  let res = str.match(/[!|>!<|=]+/g)
+  return res ? res[0] : null
+}
+
 const extractCond = function (arr, fieldArr) {
   if (arr.length === 3) {
     let isTag = !isField(arr[0], fieldArr)
@@ -116,7 +121,10 @@ const extractCond = function (arr, fieldArr) {
   }
 
   let str = arr.join()
-  let operator = str.match(/[!|>!<|=]+/g)[0]
+  let operator = getOperator(str)
+  if (!operator) {
+    return []
+  }
   let [_param1, _param2] = str.split(operator)
   let param1 = replaceQuotes(_param1)
   let param2 = replaceQuotes(_param2)
@@ -293,6 +301,11 @@ const makeWhereArr = function (and = [], or = [], fieldArr) {
   let arrSet = [...and, ...or]
   arrSet.map(function (arr, idx) {
     let [param1, operator, param2, isTag] = extractCond(arr, fieldArr)
+
+    if (!operator) {
+      return null
+    }
+
     if (isTag) {
       TAG.push({
         tagKey: param1,
@@ -417,8 +430,8 @@ const parser = function (rawStr) {
     .filter(e => e > 0)
     .sort()[0]
 
-  if (sOfWhere >= 0) {
-    let whereArr = qArr.slice(sOfWhere + 1, eOfWhere)
+  let whereArr = qArr.slice(sOfWhere + 1, eOfWhere)
+  if (sOfWhere >= 0 && whereArr.length) {
     let srcWhereArr = srcArr.slice(sOfWhere + 1, eOfWhere)
 
     let arrs = getAndnOR(whereArr, srcWhereArr)
