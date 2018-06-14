@@ -111,24 +111,32 @@ const getOperator = function (str) {
   return res ? res[0] : null
 }
 
-const extractCond = function (arr, fieldArr) {
+const _isTag = function (_field, tags = []) {
+  let field = extractStrBetweenQuotes(_field)
+  return tags.indexOf(field) >= 0
+}
+
+const extractCond = function (arr, tagKeys) {
+  let isValid = true
   if (arr.length === 3) {
-    let isTag = !isField(arr[0], fieldArr)
+    let isTag = _isTag(arr[0], tagKeys)
     let param1 = getCondStr(arr[0])
     let operator = arr[1]
     let param2 = getCondStr(arr[2])
-    return [param1, operator, param2, isTag]
+    return [param1, operator, param2, isTag, isValid]
   }
 
-  let str = arr.join()
+  let str = arr.join('')
   let operator = getOperator(str)
   if (!operator) {
-    return []
+    isValid = false
+    return [null, null, null, isValid]
   }
+
   let [_param1, _param2] = str.split(operator)
   let param1 = replaceQuotes(_param1)
   let param2 = replaceQuotes(_param2)
-  let isTag = !isField(param1, fieldArr)
+  let isTag = _isTag(param1, tagKeys)
   return [param1, operator, param2, isTag]
 }
 
@@ -294,13 +302,13 @@ const getGroupBy = function (qArr) {
   return groupBy
 }
 
-const makeWhereArr = function (and = [], or = [], fieldArr) {
+const makeWhereArr = function (and = [], or = [], tagKeys = []) {
   let AND = [], OR = [], TAG = []
   let andLen = and.length
 
   let arrSet = [...and, ...or]
   arrSet.map(function (arr, idx) {
-    let [param1, operator, param2, isTag] = extractCond(arr, fieldArr)
+    let [param1, operator, param2, isTag] = extractCond(arr, tagKeys)
 
     if (!operator) {
       return null
@@ -313,19 +321,12 @@ const makeWhereArr = function (and = [], or = [], fieldArr) {
         operator,
       })
     } else {
-      if (idx < andLen) {
-        AND.push({
-          param1,
-          param2,
-          operator,
-        })
-      } else {
-        OR.push({
-          param1,
-          param2,
-          operator,
-        })
-      }
+      let target = idx < andLen ? AND : OR
+      target.push({
+        param1,
+        param2,
+        operator,
+      })
     }
 
     return null
@@ -369,7 +370,7 @@ const getAndnOR = function (whereArr, srcWhereArr) {
   return [ands, ors]
 }
 
-const parser = function (rawStr) {
+const parser = function (rawStr, tagKeys = []) {
   let query = { ...EMPTY_QUERY }
 
   let _raw = rawStr.trim().replace(/\s+/g, WHITE_SPACE)
@@ -435,7 +436,7 @@ const parser = function (rawStr) {
     let srcWhereArr = srcArr.slice(sOfWhere + 1, eOfWhere)
 
     let arrs = getAndnOR(whereArr, srcWhereArr)
-    query.whereObj = makeWhereArr(...arrs, fieldArr)
+    query.whereObj = makeWhereArr(...arrs, tagKeys)
   }
 
   return query
