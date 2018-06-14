@@ -76,12 +76,12 @@ const getFieldFromAggregateFuncStr = function (_str) {
   return field
 }
 
-const validateGb = function (str) {
-  return /time\(\d+[w|d|h|m|s]\)$/.test(str)
+const validateGroupBy = function (str) {
+  return /time\(\d+[wdhms]\)$/.test(str)
 }
 
-const extractGb = function (str) {
-  return str.match(/\d+[w|d|h|m|s]/g)[0]
+const extractGroupBy = function (str) {
+  return str.match(/\d+[wdhms]/g)[0]
 }
 
 const includesKey = function (arr = [], key) {
@@ -179,7 +179,6 @@ const getFuncNField = function (str) {
   return [func, field]
 }
 
-// deal with queries like 'select idle as "id,le",system as "sys"'
 // deal with queries like 'select idle as "id,le",system as "sys"'
 const rearrangeSelects = function (_selects = [], _origSelects = []) {
   let selects = _selects.slice(),
@@ -294,9 +293,9 @@ const getGroupBy = function (qArr) {
   let gbIdx = qArr.indexOf('group')
   let gBStr = qArr[gbIdx + 2]
 
-  let isValidGb = validateGb(gBStr)
+  let isValidGb = validateGroupBy(gBStr)
   if (isValidGb) {
-    groupBy = extractGb(gBStr)
+    groupBy = extractGroupBy(gBStr)
   }
 
   return groupBy
